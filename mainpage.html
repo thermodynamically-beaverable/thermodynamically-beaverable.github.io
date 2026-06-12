@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Persistence of Language</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #f4f1ec;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 48px 24px;
+      font-family: 'Times New Roman', Times, serif;
+    }
+
+    #page {
+      background: #fff;
+      width: 816px;
+      min-height: 1056px;
+      padding: 96px 96px 96px 120px;
+      position: relative;
+      overflow: hidden;
+      cursor: none;
+      box-shadow: 0 4px 32px rgba(0,0,0,0.12);
+    }
+
+    .page-number {
+      position: absolute;
+      top: 48px;
+      right: 96px;
+      font-family: 'Times New Roman', Times, serif;
+      font-size: 12pt;
+      color: #111;
+    }
+
+    .mla-header p,
+    .mla-title {
+      font-family: 'Times New Roman', Times, serif;
+      font-size: 12pt;
+      color: #111;
+      line-height: 2;
+      margin: 0;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .mla-title {
+      text-align: center;
+    }
+
+    #body-field {
+      position: relative;
+      margin-top: 0;
+    }
+
+    .word-particle {
+      position: absolute;
+      font-family: 'Times New Roman', Times, serif;
+      font-size: 12pt;
+      color: #111;
+      white-space: nowrap;
+      pointer-events: none;
+      will-change: transform;
+      user-select: none;
+      line-height: 2;
+    }
+
+    #cursor-dot {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.2);
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      opacity: 0;
+      transition: opacity 0.2s;
+      z-index: 10;
+    }
+
+    #cursor-ring {
+      position: absolute;
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      border: 1px solid rgba(0,0,0,0.15);
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      opacity: 0;
+      transition: opacity 0.2s;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+
+<div id="page">
+  <div class="page-number">Chen 1</div>
+  <div id="cursor-dot"></div>
+  <div id="cursor-ring"></div>
+
+  <div class="mla-header">
+    <p>Alex Chen</p>
+    <p>Professor J. Williams</p>
+    <p>English 101</p>
+    <p>12 June 2026</p>
+  </div>
+
+  <p class="mla-title">The Persistence of Language</p>
+
+  <div id="body-field"></div>
+</div>
+
+<script>
+  const ESSAY_WORDS = [
+    "Language","does","not","merely","describe","the","world","—","it","constitutes","it.",
+    "Every","word","we","speak","carries","the","weight","of","a","thousand","prior","utterances,",
+    "each","one","layered","upon","the","last","like","strata","of","sedimentary","rock.",
+    "To","write","is","to","participate","in","a","conversation","that","began","long","before",
+    "our","birth","and","will","continue","long","after","our","silence.",
+    "The","page","is","not","a","neutral","surface.","It","is","a","field","charged","with",
+    "expectation,","with","the","ghosts","of","every","sentence","ever","pressed","into","it.",
+    "Words","arrange","themselves","not","by","chance","but","by","the","gravity","of","meaning,",
+    "pulling","toward","coherence","the","way","planets","pull","toward","one","another","across",
+    "the","indifferent","dark.","Yet","they","resist,","too.","They","scatter","and","reform,",
+    "finding","new","configurations","we","could","not","have","predicted.",
+    "This","is","what","writers","know","and","what","readers","feel:","that","language","is",
+    "always","in","motion,","always","becoming","something","other","than","what","it","was.",
+    "We","read","not","to","find","what","is","fixed","but","to","witness","what","moves.",
+  ];
+
+  const field   = document.getElementById('body-field');
+  const page    = document.getElementById('page');
+  const dot     = document.getElementById('cursor-dot');
+  const ring    = document.getElementById('cursor-ring');
+  const particles = [];
+
+  const LINE_HEIGHT_PX = 29;   // 12pt × 2 line-height ≈ 29px
+  const FIRST_INDENT   = 36;   // paragraph indent
+  const PAGE_WIDTH     = 816 - 96 - 120; // page width minus padding
+
+  function layoutWords() {
+    // Use an off-screen span to measure each word's width
+    const ruler = document.createElement('span');
+    ruler.style.cssText = [
+      'position:absolute','visibility:hidden',
+      'font-family:Times New Roman,Times,serif',
+      'font-size:12pt','white-space:nowrap'
+    ].join(';');
+    document.body.appendChild(ruler);
+
+    let x = FIRST_INDENT, y = 0, lineNum = 0;
+
+    ESSAY_WORDS.forEach(word => {
+      ruler.textContent = word + '\u00A0'; // word + space
+      const w = ruler.offsetWidth;
+
+      // Wrap if needed
+      if (x + w > PAGE_WIDTH && x > FIRST_INDENT) {
+        x = 0;
+        lineNum++;
+        y = lineNum * LINE_HEIGHT_PX;
+      }
+
+      const el = document.createElement('span');
+      el.className = 'word-particle';
+      el.textContent = word;
+      field.appendChild(el);
+
+      el.style.left = x + 'px';
+      el.style.top  = y + 'px';
+
+      particles.push({ el, ox: x, oy: y, x, y, vx: 0, vy: 0 });
+      x += w;
+    });
+
+    document.body.removeChild(ruler);
+    field.style.height = (lineNum * LINE_HEIGHT_PX + LINE_HEIGHT_PX * 2) + 'px';
+  }
+
+  layoutWords();
+
+  // ── Physics ──────────────────────────────────────────────────────────────
+  let mouseX = -9999, mouseY = -9999;
+
+  const REPEL_RADIUS   = 100;
+  const REPEL_STRENGTH = 4200;
+  const SPRING         = 0.048;
+  const DAMPING        = 0.79;
+
+  function tick() {
+    const pageRect  = page.getBoundingClientRect();
+    const fieldRect = field.getBoundingClientRect();
+    const fieldOffX = fieldRect.left - pageRect.left;
+    const fieldOffY = fieldRect.top  - pageRect.top;
+
+    // Mouse position relative to body-field
+    const lx = mouseX - fieldOffX;
+    const ly = mouseY - fieldOffY;
+
+    for (const p of particles) {
+      const dx   = p.x - lx;
+      const dy   = p.y - ly;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 0.001;
+
+      if (dist < REPEL_RADIUS) {
+        const factor   = (REPEL_RADIUS - dist) / REPEL_RADIUS;
+        const strength = REPEL_STRENGTH * factor * factor / dist;
+        p.vx += (dx / dist) * strength * 0.016;
+        p.vy += (dy / dist) * strength * 0.016;
+      }
+
+      // Spring back to origin
+      p.vx += (p.ox - p.x) * SPRING;
+      p.vy += (p.oy - p.y) * SPRING;
+
+      // Damping
+      p.vx *= DAMPING;
+      p.vy *= DAMPING;
+
+      p.x += p.vx;
+      p.y += p.vy;
+
+      p.el.style.transform =
+        `translate(${(p.x - p.ox).toFixed(2)}px, ${(p.y - p.oy).toFixed(2)}px)`;
+    }
+
+    requestAnimationFrame(tick);
+  }
+
+  // ── Cursor tracking ───────────────────────────────────────────────────────
+  page.addEventListener('mousemove', e => {
+    const r = page.getBoundingClientRect();
+    mouseX = e.clientX - r.left;
+    mouseY = e.clientY - r.top;
+
+    dot.style.left    = mouseX + 'px';
+    dot.style.top     = mouseY + 'px';
+    dot.style.opacity = '1';
+
+    ring.style.left    = mouseX + 'px';
+    ring.style.top     = mouseY + 'px';
+    ring.style.opacity = '1';
+  });
+
+  page.addEventListener('mouseleave', () => {
+    mouseX = -9999;
+    mouseY = -9999;
+    dot.style.opacity  = '0';
+    ring.style.opacity = '0';
+  });
+
+  // Touch support
+  page.addEventListener('touchmove', e => {
+    e.preventDefault();
+    const r = page.getBoundingClientRect();
+    mouseX = e.touches[0].clientX - r.left;
+    mouseY = e.touches[0].clientY - r.top;
+  }, { passive: false });
+
+  page.addEventListener('touchend', () => {
+    mouseX = -9999;
+    mouseY = -9999;
+  });
+
+  tick();
+</script>
+</body>
+</html>
